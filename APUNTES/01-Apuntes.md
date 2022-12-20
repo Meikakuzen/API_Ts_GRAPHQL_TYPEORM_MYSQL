@@ -604,3 +604,105 @@ mutation{
         return {...args, id: result.identifiers[0].id, password: passwordHash}
     } 
 ~~~
+
+---
+
+## List Users
+
+- Voy a schema/index.ts y defino una nueva consulta
+
+~~~js
+const RootQuery = new GraphQLObjectType({
+    name: 'RootQuery',
+    fields:{
+        greeting: GREETING, 
+        getAllUsers: //falta codear la query 
+    }
+})
+~~~
+
+- Creo el archivo user en la carpeta schema/queries/user.ts
+- Declaro la query y le añado el type y el resolve
+
+~~~js
+import { GraphQLString } from "graphql";
+
+
+
+export const GET_ALL_USERS ={
+    type: GraphQLString,
+    resolve(){
+        return 'user_list'
+    } 
+}
+~~~
+
+- Lo importo y coloco en schema/index.ts
+~~~js
+const RootQuery = new GraphQLObjectType({
+    name: 'RootQuery',
+    fields:{
+        greeting: GREETING, 
+        getAllUsers: GET_ALL_USERS
+    }
+})
+~~~
+
+- Si ejecuto la query me devuelve 'user_list'
+
+~~~graphql
+{
+    getAllUsers
+}
+~~~
+
+- Para que consulte la DB importo la entidad
+- schema/queries/user.ts
+
+~~~js
+import { GraphQLString } from "graphql";
+import { User } from "../../entities/user";
+
+
+export const GET_ALL_USERS ={
+    type: GraphQLString,
+    async resolve(){
+
+        const result = await User.find()
+        console.log(result)
+
+        return 'user_list'
+    } 
+}
+~~~
+
+- Este result devuelve un arreglo de objetos de tipo User
+- Puedo indicarle que es de tipo UserType 
+- Cómo es una lista puedo usar el GraphQlList
+
+~~~ts
+export const GET_ALL_USERS ={
+    type: GraphQLList(UserType),
+    async resolve(){
+
+        const result = await User.find()
+        console.log(result)
+
+        return result
+    } 
+}
+~~~
+
+- Ahora necesito especificar en el query qué campos quiero retornar
+
+~~~graphql
+{
+  getAllUsers {
+    id,
+    name
+  }
+}
+~~~
+----
+
+## Get User
