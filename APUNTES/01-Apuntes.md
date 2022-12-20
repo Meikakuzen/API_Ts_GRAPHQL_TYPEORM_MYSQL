@@ -308,5 +308,160 @@ main()
 ----
 
 ## USER ENTITY
-- 38:53
 
+- Creo la carpeta /src/entities/user.ts
+- Para definir la tabla se necesitan decoradores
+- Configuro el tsconfig para poder usar decoradores
+
+> "experimentalDecorators": true,                
+> "emitDecoratorMetadata": true
+
+- Configuro la entidad user
+- Voy a hacer que una clase llamada User herede de Entity
+
+~~~js
+import {BaseEntity, Entity, PrimaryGeneratedColumn, Column} from 'typeorm'
+
+
+@Entity()
+export class User extends BaseEntity{
+    
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column()
+    name: string;
+    @Column()
+    username: string
+
+    @Column()
+    password: string
+
+}
+
+~~~
+
+- Para que las propiedades no me den error cambio el tsconfig
+
+> "strictPropertyInitialization": false, 
+
+- Voy a db.ts y le paso la entity
+
+~~~js
+const myDataSource = new DataSource({
+    type: 'mysql',
+    username: 'root',
+    password: 'root',
+    port: 3306,
+    host: 'localhost',
+    database: 'fatzusers',
+    entities: [User],
+    synchronize: true,
+    ssl: false
+})
+~~~
+----
+
+# Create User Mutation
+
+- en el /schema/index.ts, donde definí el RootQuery, también necesito un RootMutation
+
+~~~js
+import {GraphQLSchema, GraphQLObjectType} from 'graphql'
+import { GREETING } from './queries/greeting'
+
+const RootQuery = new GraphQLObjectType({
+    name: 'RootQuery',
+    fields:{
+        greeting: GREETING
+    }
+})
+
+const Mutation = new GraphQLObjectType({
+    name: "Mutation",
+    fields:{
+        createUser   //hace falta crear esta mutación     
+    } 
+})
+
+
+export const schema = new GraphQLSchema({
+    query: RootQuery, 
+    mutation: Mutation
+})
+~~~
+
+- Creo una carpeta lalmada mutations en /schema/mutations/User.ts
+- Es habitual llamar el archivo igual que la entidad
+
+~~~js
+import { GraphQLString } from "graphql";
+
+
+export const CREATE_USER={
+    type: GraphQLString,
+    resolve(){
+        return 'user_created'
+    } 
+}
+~~~
+
+- Coloco el CREATE_USER en el schema/index.ts
+
+~~~ts
+import {GraphQLSchema, GraphQLObjectType} from 'graphql'
+import { GREETING } from './queries/greeting'
+import { CREATE_USER } from './mutations/User'
+
+const RootQuery = new GraphQLObjectType({
+    name: 'RootQuery',
+    fields:{
+        greeting: GREETING
+    }
+})
+
+const Mutation = new GraphQLObjectType({
+    name: "Mutation",
+    fields:{ 
+        createUser: CREATE_USER  
+    } 
+})
+
+
+export const schema = new GraphQLSchema({
+    query: RootQuery,
+    mutation: Mutation
+})
+~~~
+
+- Para poder pillar las propiedades del POST debo indicarle que CREATE_USER recibirá args ( argumentos )
+- resolve tiene dos parámetros, el primero es parent, el segundo es args
+
+~~~js
+import { GraphQLString } from "graphql";
+
+
+export const CREATE_USER={
+    type: GraphQLString,
+    args:{
+        name: {type: GraphQLString},
+        username: {type: GraphQLString},
+        password: {type: GraphQLString}
+    },
+    resolve(_: any, args: any){
+        console.log(args)
+        return {'user_created'}
+    } 
+}
+~~~
+
+- Si ahora hago una consulta y pongo
+
+~~~graphql
+mutation{
+    createUser(name: "Joan", username: "Zoo", password: "123")
+}
+~~~
+
+- Me devuelve el user created como respuesta y los argumentos por consola
+- Entonces, con estos datos ya puedo guardar en la DB

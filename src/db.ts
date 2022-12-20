@@ -1,4 +1,5 @@
 import {DataSource} from 'typeorm'
+import { User } from './entities/user'
 
 const myDataSource = new DataSource({
     type: 'mysql',
@@ -7,7 +8,7 @@ const myDataSource = new DataSource({
     port: 3306,
     host: 'localhost',
     database: 'fatzusers',
-    entities: [],
+    entities: [User],
     synchronize: true,
     ssl: false
 })
