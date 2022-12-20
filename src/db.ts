@@ -1,7 +1,7 @@
 import {DataSource} from 'typeorm'
 import { User } from './entities/user'
 
-const myDataSource = new DataSource({
+export const myDataSource = new DataSource({
     type: 'mysql',
     username: 'root',
     password: 'root',
@@ -13,12 +13,6 @@ const myDataSource = new DataSource({
     ssl: false
 })
 
-myDataSource.initialize()
-    .then(() => {
-        console.log("Conectado a la DB")
-    })
-    .catch((err) => {
-        console.error("Error durante la inicialización", err)
-    })
+
 
 

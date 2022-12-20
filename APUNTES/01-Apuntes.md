@@ -195,7 +195,7 @@ query{
 ~~~js
 import {DataSource} from 'typeorm'
 
-const myDataSource = new DataSource({
+export const myDataSource = new DataSource({
     type: 'mysql',
     username: 'root',
     password: 'root',
@@ -206,46 +206,7 @@ const myDataSource = new DataSource({
     synchronize: true,
     ssl: false
 })
-
-myDataSource.initialize()
-    .then(() => {
-        console.log("Conectado a la DB")
-    })
-    .catch((err) => {
-        console.error("Error durante la inicialización", err)
-    })
 ~~~
-------
-## NOTA: Ejemplos de uso de DataSource (createConnection deprecated)
-------
-- Un ejemplo de uso de DataSource. Se puede usar el await sin el async
-
-~~~js
-import { DataSource } from "typeorm"
-import { User } from "./entity/User"
-
-const myDataSource = new DataSource(/*...*/)
-const user = await myDataSource.manager.findOneBy(User, {
-    id: 1,
-})
-user.name = "Umed"
-await myDataSource.manager.save(user)
-~~~
-
-- Otro ejemplo de un GET con decoradores:
-
-~~~js
-import { AppDataSource } from "./app-data-source"
-import { User } from "../entity/User"
-
-export class UserController {
-    @Get("/users")
-    getAll() {
-        return AppDataSource.manager.find(User)
-    }
-}
-~~~
-------
 
 - Hago un cambio en app.ts. Exporto app y lo pongo a escuchar en otro archivo llamado index.ts
 
@@ -266,30 +227,25 @@ app.use('/graphql', graphqlHTTP({
 export {app}
 ~~~
 
-- src/index.ts
+- Añado al src/index.ts la inicialización de la conexión
 
 ~~~js
 import { app } from "./app";
+import { myDataSource } from "./db";
 
 
-app.listen(3000, ()=>{
-    console.log(`Servidor corriendo en puerto 3000`)
-})
-~~~
+    myDataSource.initialize()
+    .then(() => {
+        console.log("Conectado a la DB")
+    })
+    .catch((err: any) => {
+        console.error("Error durante la inicialización", err)
+    })
 
-- Puedo colocarlo dentro de una función main
-- Podría colocarlo en un try y un catch para debuguear si hubiera algún error, pero como no está la conexión a la DB no es necesario
-
-~~~js
-import { app } from "./app";
-
-
-function main(){
     app.listen(3000, ()=>{
     console.log(`Servidor corriendo en puerto 3000`)
     })
-}
-main()
+
 ~~~
 
 ## NOTA: La conexión a la DB a través de DataSource puede dar un error típico
@@ -299,7 +255,7 @@ main()
 - Debo activar la configuración entrando en la DB para activarlo
 - Del usuario root, se puede autenticar a través del método mysql_native_password con la contraseña root
 
-> ALTER USER 'root' IDENTIFIED WITH mysql_native_password BY 'root'; 
+> ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'root'; 
 
 - Para que vuelva a cargar los permisos
 
@@ -436,6 +392,7 @@ export const schema = new GraphQLSchema({
 
 - Para poder pillar las propiedades del POST debo indicarle que CREATE_USER recibirá args ( argumentos )
 - resolve tiene dos parámetros, el primero es parent, el segundo es args
+- schema/mutations/User.ts
 
 ~~~js
 import { GraphQLString } from "graphql";
@@ -465,3 +422,185 @@ mutation{
 
 - Me devuelve el user created como respuesta y los argumentos por consola
 - Entonces, con estos datos ya puedo guardar en la DB
+- Uso la desestructuración
+- Los datos que yo le pase, va a insertarlos y mostrármelos por consola
+
+~~~js
+export const CREATE_USER={
+    type: GraphQLString,
+    args:{
+        name: {type: GraphQLString},
+        username: {type: GraphQLString},
+        password: {type: GraphQLString}
+    },
+    async resolve(_: any, args: any){
+        const {name, username, password} = args;
+
+        const result = await User.insert({
+            name: name,
+            username: username,
+            password: password
+        })
+
+        console.log(result)
+        return 'user created'
+    } 
+}
+~~~
+
+- mutation en la interfaz gráfica:
+
+~~~graphql
+mutation{
+  createUser(name:"Joan", username: "Zoo", password: "1234")
+}
+~~~
+- Me ha insertado a Joan en la DB
+- El console.log me devuelve esto
+
+~~~js
+InsertResult {
+  identifiers: [ { id: 1 } ],
+  generatedMaps: [ { id: 1 } ],
+  raw: OkPacket {
+    fieldCount: 0,
+    affectedRows: 1,
+    insertId: 1,
+    serverStatus: 2,
+    warningCount: 0,
+    message: '',
+    protocol41: true,
+    changedRows: 0
+  }
+}
+~~~
+- Ahora quiero que me devuelva el objeto ( el usuario )
+- Para ello tengo que definir qué tipo de dato es.
+- Puedo crear un type personalizado, crear un objeto de tipo usuario
+- Creo en schema una carpeta schema/typesDef/User.ts
+- typesDef/User.ts
+
+~~~js
+import { GraphQLID, GraphQLObjectType, GraphQLString } from "graphql";
+
+export const UserType= new GraphQLObjectType({
+    name: 'User',
+    fields:{
+        id: {type: GraphQLID},
+        name: {type: GraphQLString},
+        username: {type: GraphQLString},
+        password: {type: GraphQLString}
+    }
+})
+~~~
+
+- Pongo el tipo en type
+- Ahora debo retornar un objeto que tenga un id, un nombre, username y password, si no dará error
+- mutations/User.ts
+
+~~~js
+import { GraphQLString } from "graphql";
+import { User } from "../../entities/user";
+import { UserType } from "../typesDef/User";
+
+
+export const CREATE_USER={
+    type: UserType,
+    args:{
+        name: {type: GraphQLString},
+        username: {type: GraphQLString},
+        password: {type: GraphQLString}
+    },
+    async resolve(_: any, args: any){
+        const {name, username, password} = args;
+
+        const result = await User.insert({
+            name: name,
+            username: username,
+            password: password
+        })
+
+        console.log(result)
+        return {
+            id:1,
+            name,
+            username,
+            password
+        }
+    } 
+}
+~~~
+- Cómo ahora cumplo con el tipo de dato devolviendo los valores si funciona, pero la mutation me pide que seleccione que dato quiero que retorne
+- mutation
+
+~~~graphql
+mutation{
+  createUser(
+    name:"Joan", 
+    username: "Zoo", 
+    password: "1234"
+  ){
+    id,
+    name,
+    username, 
+    password
+  }
+}
+~~~
+
+- El id está en la db 
+- Puedo hacer una consulta a mi tabla del último dato guardado y devolverlo
+- en lugar de tipear otra vez los argumentos puedo pasarle {...args} en el return
+
+~~~js
+    async resolve(_: any, args: any){
+        const {name, username, password} = args;
+
+        const result = await User.insert({
+            name: name,
+            username: username,
+            password: password
+        })
+
+        console.log(result)
+        return {...args}
+    } 
+~~~
+
+- El id me devuelve NULL
+- Para devolverlo, SI MIRO EL CONSOLE.LOG de result, en la primera posición está identifiers:[ {id:2}]
+- Ahí tengo el id
+
+~~~js
+   async resolve(_: any, args: any){
+        const {name, username, password} = args;
+
+        const result = await User.insert({
+            name: name,
+            username: username,
+            password: password
+        })
+
+        console.log(result)
+        return {...args, id: result.identifiers[0].id}
+    } 
+~~~
+- La contraseña está sin encriptar. Para ello importo bcrypt
+- import bcrypt from 'bcryptjs'
+
+~~~js
+    async resolve(_: any, args: any){
+        const {name, username, password} = args;
+
+        const passwordHash= await bcrypt.hash(password,10) //encripto el password
+
+        const result = await User.insert({
+            name: name,
+            username: username,
+            password: passwordHash
+        })
+
+        console.log(result)
+        return {...args, id: result.identifiers[0].id}
+    } 
+~~~
