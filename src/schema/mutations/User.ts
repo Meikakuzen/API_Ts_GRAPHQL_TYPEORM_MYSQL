@@ -23,6 +23,6 @@ export const CREATE_USER={
         })
 
         console.log(result)
-        return {...args, id: result.identifiers[0].id}
+        return {...args, id: result.identifiers[0].id, password: passwordHash}
     } 
 }
