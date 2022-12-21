@@ -706,3 +706,117 @@ export const GET_ALL_USERS ={
 ----
 
 ## Get User
+
+- Creo una nueva query en schema/index.ts llamada getUser
+- En schema/queries/user.ts creo una nueva función que se llame GET_USER
+
+~~~js
+export const GET_USER={
+    type: UserType,
+    args:{
+        id: {type: GraphQLID}
+    },
+    async resolve(_:any, args:any){
+        const user = await User.findOneBy({id:args.id})
+
+        return user
+    }
+}
+~~~
+
+- Lo coloco en el schema/index.ts
+
+~~~js
+const RootQuery = new GraphQLObjectType({
+    name: 'RootQuery',
+    fields:{
+        greeting: GREETING, 
+        getAllUsers: GET_ALL_USERS,
+        getUser: GET_USER
+    }
+})
+~~~
+
+- Hago la petición en la interfaz gráfica
+
+~~~graphql
+{
+  getUser(id: 1) {
+    name, 
+    password
+  }
+}
+~~~
+- De parámetro puedo recibir cualquier cosa, un objeto, un boolean, un string...
+
+----
+## Delete User Mutation
+
+- Voy a mutations/user.ts y creo otra función llamada DELETE_USER
+
+~~~js
+export const DELETE_USER={
+    type: GraphQLBoolean,
+    args:{
+        id: {type: GraphQLID}
+    },
+    async resolve(_:any, {id}:any){
+        await User.delete({id: id})
+
+        return true
+    }
+}
+~~~
+
+- Lo coloco en le mutation
+
+~~~js
+const Mutation = new GraphQLObjectType({
+    name: "Mutation",
+    fields:{ 
+        createUser: CREATE_USER,
+        deleteUser: DELETE_USER
+    } 
+})
+~~~
+
+- Puedo guardar el resultado del delete y pasarlo por consola con un console.log.
+    - Veré que cuando hago el delete, me devuelve un objeto con {raw:[], affected:1}
+    - 1 si lo borra, 0 si no lo borra
+    - Puedo usar esto para hacer una validación
+
+~~~js
+export const DELETE_USER={
+    type: GraphQLBoolean,
+    args:{
+        id: {type: GraphQLID}
+    },
+    async resolve(_:any, {id}:any){
+        const result = await User.delete({id: id})
+        if(result.affected === 0){
+            return false
+        }else{
+            return true
+
+        }
+    }
+}
+~~~
+
+- Consulta:
+
+~~~graphql
+mutation{
+  deleteUser(id: 2)
+}
+~~~
+
+## Update User Mutation
+
+- Necesito pasarle el id y los argumentos a actualizar
+- Creo una nueva función en mutations/user.ts
+- Voy a devolver un boolean,los argumentos son las propiedades de user
+- Primero voy a localizar al usuario y comprobar el match del password
+
+
+
